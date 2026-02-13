@@ -85,6 +85,80 @@ export interface AliExpressPlaceOrderResponse {
   };
 }
 
+// Hot products response (same structure as product query)
+export interface AliExpressHotProductsResponse {
+  resp_result?: {
+    resp_code: number;
+    resp_msg: string;
+    result?: {
+      current_page_no: number;
+      current_record_count: number;
+      total_record_count: number;
+      products?: { product: AliExpressApiProduct[] };
+    };
+  };
+}
+
+// Category list response
+export interface AliExpressCategoryResponse {
+  resp_result?: {
+    resp_code: number;
+    result?: {
+      categories?: Array<{
+        category_id: number;
+        category_name: string;
+        parent_category_id?: number;
+        is_leaf_category?: boolean;
+      }>;
+    };
+  };
+}
+
+// Affiliate link generation response
+export interface AliExpressLinkGenerateResponse {
+  resp_result?: {
+    resp_code: number;
+    result?: {
+      promotion_links?: Array<{
+        promotion_link: string;
+        source_value: string;
+      }>;
+    };
+  };
+}
+
+// DS (dropshipping) product detail response
+export interface AliExpressDsProductResponse {
+  result?: {
+    product_id: number;
+    product_title: string;
+    product_price: string;
+    product_price_currency: string;
+    product_main_image_url?: string;
+    package_length?: number;
+    package_width?: number;
+    package_height?: number;
+    package_weight?: string;
+    sku_info_list?: Array<{
+      sku_id: string;
+      sku_price: string;
+      sku_stock: boolean;
+      sku_attr: string;
+    }>;
+  };
+}
+
+// DS order status response
+export interface AliExpressDsOrderStatusResponse {
+  result?: {
+    order_id: number;
+    order_status: string;
+    logistics_status?: string;
+    order_amount?: { amount: string; currency_code: string };
+    gmt_create?: string;
+  };
+}
+
 // Tracking info response
 export interface AliExpressTrackingResponse {
   result?: {

@@ -57,7 +57,7 @@ export async function getAccessToken(config: EbayAuthConfig): Promise<string> {
     ? new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: config.refreshToken,
-        scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.fulfillment https://api.ebay.com/oauth/api_scope/sell.account',
+        scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.fulfillment https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.finances https://api.ebay.com/oauth/api_scope/sell.analytics.readonly https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/commerce.taxonomy.readonly',
       })
     : new URLSearchParams({
         grant_type: 'client_credentials',

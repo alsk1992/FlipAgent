@@ -34,6 +34,8 @@ export interface EbaySellerApi {
   updateOfferPrice(offerId: string, newPrice: number): Promise<void>;
   withdrawOffer(offerId: string): Promise<void>;
   deleteInventoryItem(sku: string): Promise<void>;
+  getInventoryItems(params?: { limit?: number; offset?: number }): Promise<{ inventoryItems: EbayInventoryItem[]; total: number }>;
+  bulkUpdatePriceQuantity(updates: Array<{ sku: string; offerId: string; price?: number; quantity?: number }>): Promise<{ responses: Array<{ statusCode: number; sku: string; offerId: string; errors?: Array<{ message: string }> }> }>;
 }
 
 export function createEbaySellerApi(credentials: EbayCredentials): EbaySellerApi {
@@ -251,6 +253,66 @@ export function createEbaySellerApi(credentials: EbayCredentials): EbaySellerApi
       }
 
       logger.info({ sku }, 'Inventory item deleted');
+    },
+
+    async getInventoryItems(params?): Promise<{ inventoryItems: EbayInventoryItem[]; total: number }> {
+      const token = await getToken();
+
+      const queryParams = new URLSearchParams();
+      queryParams.set('limit', String(params?.limit ?? 25));
+      queryParams.set('offset', String(params?.offset ?? 0));
+
+      const response = await fetch(
+        `${baseUrl}/sell/inventory/v1/inventory_item?${queryParams.toString()}`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`eBay get inventory items failed (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json() as { inventoryItems?: EbayInventoryItem[]; total?: number };
+      return {
+        inventoryItems: data.inventoryItems ?? [],
+        total: data.total ?? 0,
+      };
+    },
+
+    async bulkUpdatePriceQuantity(updates): Promise<{ responses: Array<{ statusCode: number; sku: string; offerId: string; errors?: Array<{ message: string }> }> }> {
+      const token = await getToken();
+
+      const requests = updates.map((u) => ({
+        sku: u.sku,
+        offers: [{
+          offerId: u.offerId,
+          availableQuantity: u.quantity,
+          price: u.price !== undefined ? { value: u.price.toFixed(2), currency: 'USD' } : undefined,
+        }],
+      }));
+
+      const response = await fetch(
+        `${baseUrl}/sell/inventory/v1/bulk_update_price_quantity`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ requests }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`eBay bulk update price/quantity failed (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json() as { responses: Array<{ statusCode: number; sku: string; offerId: string; errors?: Array<{ message: string }> }> };
+      logger.info({ updateCount: updates.length }, 'Bulk price/quantity update completed');
+      return data;
     },
   };
 }

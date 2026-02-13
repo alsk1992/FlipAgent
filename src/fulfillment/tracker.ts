@@ -9,18 +9,19 @@
  */
 
 import { createLogger } from '../utils/logger';
-import type { EbayCredentials, AliExpressCredentials } from '../types';
+import type { EbayCredentials, AliExpressCredentials, EasyPostCredentials } from '../types';
 import type { ShipmentTracking } from './types';
 import { callAliExpressApi, type AliExpressAuthConfig } from '../platforms/aliexpress/auth';
 import type { AliExpressTrackingResponse } from '../platforms/aliexpress/types';
 import { createEbayOrdersApi } from '../platforms/ebay/orders';
+import { createEasyPostApi } from '../platforms/easypost';
 
 const logger = createLogger('tracker');
 
 export async function getTracking(
   trackingNumber: string,
   carrier?: string,
-  credentials?: { aliexpress?: AliExpressCredentials },
+  credentials?: { aliexpress?: AliExpressCredentials; easypostApiKey?: string },
 ): Promise<ShipmentTracking | null> {
   logger.info({ trackingNumber, carrier }, 'Fetching tracking info');
 
@@ -56,6 +57,30 @@ export async function getTracking(
       }
     } catch (err) {
       logger.warn({ trackingNumber, err }, 'AliExpress tracking query failed, falling back');
+    }
+  }
+
+  // Fallback: Try EasyPost universal tracking
+  const epKey = credentials?.easypostApiKey;
+  if (epKey && trackingNumber) {
+    try {
+      const ep = createEasyPostApi({ apiKey: epKey });
+      const tracker = await ep.createTracker(trackingNumber, carrier);
+      return {
+        carrier: tracker.carrier ?? carrier ?? 'Unknown',
+        trackingNumber,
+        status: tracker.statusDetail ?? tracker.status ?? 'In Transit',
+        estimatedDelivery: tracker.estDeliveryDate ? new Date(tracker.estDeliveryDate) : undefined,
+        events: tracker.trackingDetails.map(d => ({
+          date: new Date(d.datetime),
+          location: d.trackingLocation
+            ? `${d.trackingLocation.city ?? ''}, ${d.trackingLocation.state ?? ''} ${d.trackingLocation.zip ?? ''}`.trim()
+            : '',
+          description: d.message ?? d.status ?? '',
+        })),
+      };
+    } catch (err) {
+      logger.warn({ trackingNumber, err }, 'EasyPost tracking failed, using fallback');
     }
   }
 

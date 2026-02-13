@@ -202,6 +202,12 @@ export interface AmazonCredentials {
   marketplace?: string;
   sellerToken?: string;
   refreshToken?: string;
+  /** LWA client ID for SP-API (Selling Partner API) */
+  spClientId?: string;
+  /** LWA client secret for SP-API */
+  spClientSecret?: string;
+  /** LWA refresh token for SP-API */
+  spRefreshToken?: string;
 }
 
 export interface EbayCredentials {
@@ -215,6 +221,10 @@ export interface WalmartCredentials {
   clientId: string;
   clientSecret: string;
   consumerId?: string;
+  /** Walmart Marketplace seller OAuth client ID */
+  sellerClientId?: string;
+  /** Walmart Marketplace seller OAuth client secret */
+  sellerClientSecret?: string;
 }
 
 export interface AliExpressCredentials {
@@ -223,11 +233,22 @@ export interface AliExpressCredentials {
   accessToken?: string;
 }
 
+export interface KeepaCredentials {
+  apiKey: string;
+  domainId?: number;
+}
+
+export interface EasyPostCredentials {
+  apiKey: string;
+}
+
 export type PlatformCredentials =
   | AmazonCredentials
   | EbayCredentials
   | WalmartCredentials
-  | AliExpressCredentials;
+  | AliExpressCredentials
+  | KeepaCredentials
+  | EasyPostCredentials;
 
 // =============================================================================
 // CONFIG

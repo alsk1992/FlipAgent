@@ -97,3 +97,13 @@ export interface PaApiError {
   Code?: string;
   Message?: string;
 }
+
+// Re-export SP-API types
+export type {
+  SpApiCatalogItem,
+  SpApiPricingResult,
+  SpApiFeeEstimate,
+  SpApiOrder,
+  SpApiInventorySummary,
+  SpApiListingItem,
+} from './sp-api';

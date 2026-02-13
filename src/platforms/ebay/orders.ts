@@ -11,11 +11,18 @@ import { getAccessToken, API_BASE } from './auth';
 
 const logger = createLogger('ebay-orders');
 
+export interface EbayRefundRequest {
+  reasonForRefund: 'BUYER_CANCEL' | 'ITEM_NOT_RECEIVED' | 'ITEM_NOT_AS_DESCRIBED' | 'OTHER';
+  comment?: string;
+  orderLevelRefundAmount?: { value: string; currency: string };
+}
+
 export interface EbayOrdersApi {
   getOrders(filter?: string): Promise<EbayOrder[]>;
   getUnfulfilledOrders(): Promise<EbayOrder[]>;
   getOrder(orderId: string): Promise<EbayOrder | null>;
   createShippingFulfillment(orderId: string, fulfillment: EbayShippingFulfillment): Promise<string>;
+  issueRefund(orderId: string, refund: EbayRefundRequest): Promise<{ refundId: string; refundStatus: string }>;
 }
 
 export function createEbayOrdersApi(credentials: EbayCredentials): EbayOrdersApi {
@@ -108,6 +115,32 @@ export function createEbayOrdersApi(credentials: EbayCredentials): EbayOrdersApi
 
       logger.info({ orderId, fulfillmentId }, 'Shipping fulfillment created');
       return fulfillmentId;
+    },
+
+    async issueRefund(orderId: string, refund: EbayRefundRequest): Promise<{ refundId: string; refundStatus: string }> {
+      const token = await getToken();
+
+      const response = await fetch(
+        `${baseUrl}/sell/fulfillment/v1/order/${encodeURIComponent(orderId)}/issue_refund`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(refund),
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error({ status: response.status, orderId, error: errorText }, 'Failed to issue refund');
+        throw new Error(`eBay issue refund failed (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json() as { refundId: string; refundStatus: string };
+      logger.info({ orderId, refundId: data.refundId, status: data.refundStatus }, 'Refund issued');
+      return data;
     },
   };
 }

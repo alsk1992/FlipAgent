@@ -88,6 +88,141 @@ export function buildSignedRequest(
 /**
  * Execute a signed AliExpress API call.
  */
+// ─── OAuth Token Management ───
+
+const OAUTH_GATEWAY = 'https://api-sg.aliexpress.com';
+
+export interface AliExpressOAuthToken {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+  refreshExpiresAt: number;
+}
+
+/**
+ * Obtain an OAuth access token using an authorization code.
+ * Called after user authorizes the app via AliExpress developer portal.
+ */
+export async function obtainAliExpressToken(
+  code: string,
+  config: { appKey: string; appSecret: string },
+): Promise<AliExpressOAuthToken> {
+  const params: Record<string, string> = {
+    app_key: config.appKey,
+    sign_method: 'sha256',
+    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    code,
+  };
+
+  params.sign = signParams(params, config.appSecret);
+
+  const response = await fetch(`${OAUTH_GATEWAY}/auth/token/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+    body: new URLSearchParams(params).toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`AliExpress OAuth token create failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json() as {
+    access_token: string;
+    refresh_token: string;
+    expire_time: string; // millisecond timestamp
+    refresh_token_valid_time: string;
+  };
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: parseInt(data.expire_time, 10),
+    refreshExpiresAt: parseInt(data.refresh_token_valid_time, 10),
+  };
+}
+
+/**
+ * Refresh an expired access token using the refresh token.
+ */
+export async function refreshAliExpressToken(
+  refreshToken: string,
+  config: { appKey: string; appSecret: string },
+): Promise<AliExpressOAuthToken> {
+  const params: Record<string, string> = {
+    app_key: config.appKey,
+    sign_method: 'sha256',
+    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    refresh_token: refreshToken,
+  };
+
+  params.sign = signParams(params, config.appSecret);
+
+  const response = await fetch(`${OAUTH_GATEWAY}/auth/token/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+    body: new URLSearchParams(params).toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`AliExpress OAuth token refresh failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json() as {
+    access_token: string;
+    refresh_token: string;
+    expire_time: string;
+    refresh_token_valid_time: string;
+  };
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: parseInt(data.expire_time, 10),
+    refreshExpiresAt: parseInt(data.refresh_token_valid_time, 10),
+  };
+}
+
+/**
+ * Get a valid access token, refreshing if needed.
+ * Caches tokens per appKey.
+ */
+const oauthTokenCache = new Map<string, AliExpressOAuthToken>();
+
+export async function getValidAliExpressToken(
+  config: { appKey: string; appSecret: string },
+  storedRefreshToken?: string,
+): Promise<string | null> {
+  const cached = oauthTokenCache.get(config.appKey);
+
+  if (cached && Date.now() < cached.expiresAt - 60_000) {
+    return cached.accessToken;
+  }
+
+  const rtToUse = cached?.refreshToken ?? storedRefreshToken;
+  if (!rtToUse) {
+    logger.warn('No refresh token available for AliExpress OAuth');
+    return null;
+  }
+
+  if (cached && Date.now() > cached.refreshExpiresAt) {
+    logger.error('AliExpress refresh token expired, re-authorization required');
+    return null;
+  }
+
+  try {
+    const newToken = await refreshAliExpressToken(rtToUse, config);
+    oauthTokenCache.set(config.appKey, newToken);
+    return newToken.accessToken;
+  } catch (err) {
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, 'Token refresh failed');
+    return null;
+  }
+}
+
+// ─── API Call Helper ───
+
 export async function callAliExpressApi<T = unknown>(
   method: string,
   businessParams: Record<string, unknown>,

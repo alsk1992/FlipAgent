@@ -67,3 +67,11 @@ export interface WalmartApiItem {
 export interface WalmartItemResponse {
   items?: WalmartApiItem[];
 }
+
+// Re-export seller types
+export type {
+  WalmartSellerItem,
+  WalmartOrder as WalmartSellerOrder,
+  WalmartInventoryItem,
+  WalmartFeedResponse,
+} from './seller';
