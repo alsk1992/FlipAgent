@@ -128,6 +128,10 @@ export interface SystemPromptConfig {
   customSections?: Array<{ title: string; content: string }>;
   /** Maximum tokens for system prompt */
   maxSystemTokens?: number;
+  /** User ID for memory lookups */
+  userId?: string;
+  /** Channel for memory lookups */
+  channel?: string;
 }
 
 // =============================================================================
@@ -607,19 +611,33 @@ export function createContextManager(
       }
 
       // User facts from memory
-      if (promptConfig.includeUserFacts && memoryService) {
-        // Would need userId/channel context here
-        // For now, skip - should be injected by caller
+      if (promptConfig.includeUserFacts && memoryService && promptConfig.userId) {
+        const channel = promptConfig.channel ?? 'default';
+        const facts = memoryService.recallByType(promptConfig.userId, channel, 'fact');
+        if (facts.length > 0) {
+          parts.push('\n# User Facts');
+          parts.push(facts.map(f => `- ${f.key}: ${f.value}`).join('\n'));
+        }
       }
 
       // User preferences
-      if (promptConfig.includePreferences && memoryService) {
-        // Similar - need user context
+      if (promptConfig.includePreferences && memoryService && promptConfig.userId) {
+        const channel = promptConfig.channel ?? 'default';
+        const prefs = memoryService.recallByType(promptConfig.userId, channel, 'preference');
+        if (prefs.length > 0) {
+          parts.push('\n# User Preferences');
+          parts.push(prefs.map(p => `- ${p.key}: ${p.value}`).join('\n'));
+        }
       }
 
       // Recent summaries from memory
-      if (promptConfig.includeRecentSummaries && memoryService) {
-        // Similar - need user context
+      if (promptConfig.includeRecentSummaries && memoryService && promptConfig.userId) {
+        const channel = promptConfig.channel ?? 'default';
+        const logs = memoryService.getRecentLogs(promptConfig.userId, channel, 3);
+        if (logs.length > 0) {
+          parts.push('\n# Recent Conversation Summaries');
+          parts.push(logs.map(l => `[${l.date}] ${l.summary}`).join('\n'));
+        }
       }
 
       // Custom sections

@@ -6,7 +6,7 @@
  * - Single agent loop with tool calling
  * - Dynamic tool loading via ToolRegistry
  * - Streaming Anthropic API
- * - Stub tool implementations (to be filled in later)
+ * - Full tool implementations for all 88 registered tools
  */
 
 import Anthropic from '@anthropic-ai/sdk';
@@ -1065,9 +1065,12 @@ function defineTools(): ToolDefinition[] {
       input_schema: {
         type: 'object',
         properties: {
+          fromStreet: { type: 'string', description: 'Origin street address' },
           fromZip: { type: 'string', description: 'Origin ZIP code' },
           fromCity: { type: 'string', description: 'Origin city' },
           fromState: { type: 'string', description: 'Origin state (2-letter)' },
+          fromCountry: { type: 'string', description: 'Origin country (default: US)', default: 'US' },
+          toStreet: { type: 'string', description: 'Destination street address' },
           toZip: { type: 'string', description: 'Destination ZIP code' },
           toCity: { type: 'string', description: 'Destination city' },
           toState: { type: 'string', description: 'Destination state (2-letter)' },
@@ -3004,14 +3007,14 @@ async function executeTool(
       const ep = createEasyPostApi({ apiKey: epKey });
       const shipment = await ep.createShipment({
         fromAddress: {
-          street1: '123 Main St', // placeholder, user can provide
+          street1: (input.fromStreet as string) ?? '',
           city: input.fromCity as string ?? '',
           state: input.fromState as string ?? '',
           zip: input.fromZip as string,
-          country: 'US',
+          country: (input.fromCountry as string) ?? 'US',
         },
         toAddress: {
-          street1: '456 Oak Ave', // placeholder
+          street1: (input.toStreet as string) ?? '',
           city: input.toCity as string ?? '',
           state: input.toState as string ?? '',
           zip: input.toZip as string,
